@@ -12,10 +12,10 @@ def get_soup(url):
 
 def find_Name(soup):
     name_list = []
-    content = soup.find_all(class_="link-blanc")
+    content = soup.find_all(class_="champion_icon rounded-circle")
     # names = content.find()
     for names in content:
-        name = names.text
+        name = names["alt"]
         name_list.append(name)
 
     return name_list
