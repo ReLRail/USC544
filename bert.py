@@ -9,10 +9,15 @@ from transformers import TrainingArguments, Trainer
 from transformers import XLNetTokenizer, XLNetModel
 from torch.nn import CrossEntropyLoss
 import time
-import pandas as pd
+from datasets import Dataset
 from torch.utils.data import TensorDataset
 
+import time
+import datetime
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+import pickle
+
 class XLNetForMultiLabelSequenceClassification(torch.nn.Module):
   
   def __init__(self, num_labels=2):
@@ -223,8 +228,6 @@ def train(model, num_epochs,\
   print("Total training took {:} (h:mm:ss)".format(format_time(time.time()-total_t0)))
   return model, train_loss_set, valid_loss_set, training_stats
 
-import time
-import datetime
 
 def format_time(elapsed):
     '''
@@ -319,39 +322,36 @@ class twobert(torch.nn.Module):
 
 
     def forward(self, input_ids, token_type_ids=None,\
-                attention_mask=None, labels=None):
+                attention_mask=None,labels=None):
         
         
-        res1 = self.bert1(input_ids=input_ids[:,0],\
-                                    attention_mask=attention_mask[:,0],\
-                                    token_type_ids=token_type_ids[:,0]
+        res1 = self.bert1(input_ids=input_ids,\
+                                    attention_mask=attention_mask,\
+                                    token_type_ids=token_type_ids
                                     )
-        res2 = self.bert1(input_ids=input_ids[:,1],\
-                                    attention_mask=attention_mask[:,1],\
-                                    token_type_ids=token_type_ids[:,1]
+        res2 = self.bert2(input_ids=input_ids,\
+                                    attention_mask=attention_mask,\
+                                    token_type_ids=token_type_ids
                                     )
         return res1, res2
 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-data_files = {"train": "train.csv", "test": "test.csv"}
-dataset = load_dataset("./", data_files=data_files)
-tokenizer = AutoTokenizer.from_pretrained("bert-base-cased", do_lower_case=True,model_max_length=400)
+
 
 # tokenizer = XLNetTokenizer.from_pretrained("xlnet-base-cased",model_max_length=400, do_lower_case=True)
 
-def tokenize_function(examples):
-    temp=tokenizer([ row[0] for row in examples["clean"]], padding="max_length", truncation=True)
-    temp1=tokenizer([ row[1] for row in examples["clean"]], padding="max_length", truncation=True)
-    for i in temp:
-        for j in range(len(temp[i])):
-            temp[i][j]=[temp[i][j],temp1[i][j]]
-    
-    return temp
-
 # def tokenize_function(examples):
+#     temp=tokenizer([ row[0] for row in examples["text"]], padding="max_length", truncation=True)
+#     temp1=tokenizer([ row[1] for row in examples["text"]], padding="max_length", truncation=True)
+#     for i in temp:
+#         for j in range(len(temp[i])):
+#             temp[i][j]=[temp[i][j],temp1[i][j]]
     
-#     return tokenizer(examples["clean"], padding="max_length", truncation=True)
+#     return temp
+
+def tokenize_function(examples):
+    
+    return tokenizer(examples["text"], padding="max_length", truncation=True)
 
 def modify_text(sentence,b_names,r_names):
     i=0
@@ -380,20 +380,28 @@ def modify_text(sentence,b_names,r_names):
     # return ' '.join(selected)
 
 
-def compute_metrics(eval_pred):
-    logits,labels=eval_pred
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
 
-dataset = dataset.map(lambda example: {'labels': 0 if example["team_one_name"].strip()==example["win_team"].strip() else 1, 
- 'clean': modify_text(example["text"].lower(),[example["team_one_player4"].lower(), example["team_one_player2"].lower(), example["team_one_player5"].lower(), example["team_one_player1"].lower(), example["team_one_color"].lower(), example["team_one_name"].lower(), example["team_one_player3"].lower()],
-    [example["team_two_player9"].lower(), example["team_two_player6"].lower(), example["team_two_color"].lower(), example["team_two_name"].lower(), example["team_two_player7"].lower(), example["team_two_player8"].lower(), example["team_two_player10"].lower()])}
-    ,remove_columns=['win_team',"team_one_player4", "team_two_player9", "team_one_player2", "team_one_player5", "team_two_player6", "team_two_player10", "team_one_player1", "team_two_color", 
-    "video_link", "team_one_color", "team_one_name", "team_one_player3", "team_two_name", "team_two_player7", "team_two_player8"])
-# dataset = dataset.map(lambda example: {'labels': 0 if example["team_one_name"].strip()==example["win_team"].strip() else 1})
+
+
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+# data_files = {"train": "train.csv","test": "test.csv"}
+# dataset = load_dataset("./", data_files=data_files)
+
+with open('total_onemin.pkl', 'rb') as f:
+    data_dict = pickle.load(f)
+
+dataset = Dataset.from_dict(data_dict)
+tokenizer = AutoTokenizer.from_pretrained("bert-base-cased", do_lower_case=True,model_max_length=400)
+# dataset = dataset.map(lambda example: {'labels': 0 if example["team_one_name"].strip()==example["win_team"].strip() else 1, 
+#  'clean': modify_text(example["text"].lower(),[example["team_one_player4"].lower(), example["team_one_player2"].lower(), example["team_one_player5"].lower(), example["team_one_player1"].lower(), example["team_one_color"].lower(), example["team_one_name"].lower(), example["team_one_player3"].lower()],
+#     [example["team_two_player9"].lower(), example["team_two_player6"].lower(), example["team_two_color"].lower(), example["team_two_name"].lower(), example["team_two_player7"].lower(), example["team_two_player8"].lower(), example["team_two_player10"].lower()])}
+#     ,remove_columns=['win_team',"team_one_player4", "team_two_player9", "team_one_player2", "team_one_player5", "team_two_player6", "team_two_player10", "team_one_player1", "team_two_color", 
+#     "video_link", "team_one_color", "team_one_name", "team_one_player3", "team_two_name", "team_two_player7", "team_two_player8"])
 tokenized_datasets = dataset.map(tokenize_function, batched=True)
+tokenized_datasets=tokenized_datasets.train_test_split(test_size=0.1)
 small_train_dataset = tokenized_datasets["train"].shuffle(seed=42)
 small_test_dataset = tokenized_datasets["test"]
+
 del dataset
 # traindata=pd.read_csv("./train.csv")
 # for i in range(len(traindata)):
@@ -422,27 +430,44 @@ del dataset
 # te_labels = torch.tensor(te_labels,dtype=torch.long)
 # te_dataset = TensorDataset(te_input_ids, te_attention_masks, te_labels)
 
-model = twobert().to(device)
-# model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=2).to(device)
-metric = evaluate.load("accuracy")
+# model = twobert().to(device)
+model = AutoModelForSequenceClassification.from_pretrained("bert-base-cased", num_labels=1).to(device)
 # model = XLNetForMultiLabelSequenceClassification(num_labels=2).to(device)
+
+# metric = evaluate.load("accuracy")
+def compute_metrics(eval_pred):
+    logits,labels=eval_pred
+    # predictions = np.argmax(logits, axis=-1)
+    # lossfc=torch.nn.CrossEntropyLoss()
+    lossfc =torch.nn.MSELoss()
+    return {'MSE loss':lossfc(torch.tensor(logits), torch.tensor(labels))}
+
 class CustomTrainer(Trainer):
+    #TODO:add previouse rateinfor
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.get("labels")
         # forward pass
-        res1,res2 = model(**inputs)
-        # compute custom loss (suppose one has 3 labels with different weights)
-        loss_fct = torch.nn.CrossEntropyLoss()
-        loss = loss_fct(torch.cat([res1.logits,res2.logits],dim=1), labels)
-        temp=res1
-        temp.logits=torch.cat([res1.logits,res2.logits],dim=1)
-        return (loss, temp) if return_outputs else loss
+        res1= model(**inputs)
+        # loss_fct = torch.nn.CrossEntropyLoss()
+        loss_fct =torch.nn.MSELoss()
+        loss = loss_fct(res1.logits, labels)
+        return (loss, res1) if return_outputs else loss
+    # def compute_loss(self, model, inputs, return_outputs=False):
+    #     labels = inputs.get("labels")
+    #     # forward pass
+    #     res1,res2 = model(**inputs)
+    #     loss_fct = torch.nn.CrossEntropyLoss()
+    #     loss = loss_fct(torch.cat([res1.logits,res2.logits],dim=1), labels)
+    #     temp=res1
+    #     temp.logits=torch.cat([res1.logits,res2.logits],dim=1)
+    #     return (loss, temp) if return_outputs else loss
 
-training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch",num_train_epochs=20)
+
+training_args = TrainingArguments(save_strategy="no",output_dir="test_trainer", evaluation_strategy="epoch",logging_strategy="epoch",num_train_epochs=50,per_device_train_batch_size=8)
 trainer = CustomTrainer(
     model=model,
     args=training_args,
-    train_dataset=small_train_dataset,
+    train_dataset=small_test_dataset,
     eval_dataset=small_test_dataset,
     compute_metrics=compute_metrics,
 )
@@ -454,7 +479,7 @@ trainer = CustomTrainer(
 #     compute_metrics=compute_metrics,
 # )
 trainer.train()
-# model.save_pretrained(r"D:\bert\fine_xlnet")
+model.save_pretrained(r"D:\bert\replacement_half_inter_partial")
 # model = XLNetForMultiLabelSequenceClassification(num_labels=2)
 # num_epochs = 200
 # from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
