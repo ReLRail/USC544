@@ -1,8 +1,8 @@
 import re
 from bs4 import BeautifulSoup
 from urllib.request import Request, urlopen
-
-
+import pandas as pd
+from datetime import datetime
 def get_soup(url):
     header = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36'
@@ -23,8 +23,8 @@ def find_Name(soup):
 
 def find_label(soup):
     contents = soup.find_all("script")
-    label_list = []
     data_list = []
+    label=0
     for content in contents:
         if "var golddatas" in content.text:
             script = content.text
@@ -40,53 +40,55 @@ def find_label(soup):
                 if "data" in data:
                     data_index = index + 1
             label_string = script_list[label_index]
-            label_list = re.findall(r'\d+', label_string)
+            label_list =  list(map(int,re.findall(r'\d+', label_string)))
             data_string = script_list[data_index]
-            data_list = re.findall(r'\d+', data_string)
+            data_list = list(map(int, re.findall(r'-?\d+\.?\d*', data_string)))
             break
-    return [label_list, data_list]
+    # if label_list[-1]==label_list[-2]:
+    #     label=label_list[-1]+1
+    # else:
+    #     label=label_list[-1]
+    # data_list.insert(0,label)
+    return data_list
 
 
-def get_action_list(action_content):
+def get_action_list(action_content,types):
     action_list = []
     for act in action_content:
         get_alt = act.find('img', alt=True)
-        action_list.append([get_alt["alt"], act.text])
+        action_list.append([datetime.strptime(act.text,'%M:%S'), types, get_alt["alt"].lower()])
     return action_list
 
 
 def find_action(soup):
     blue_contents = soup.find_all(class_="blue_action")
     red_contents = soup.find_all(class_="red_action")
-    action_dict = {}
-    get_blue_list = get_action_list(blue_contents)
-    action_dict['blue'] = get_blue_list
-    get_red_list = get_action_list(red_contents)
-    action_dict['red'] = get_red_list
-
-    return action_dict
+    get_blue_list = get_action_list(blue_contents,'b')
+    
+    get_red_list = get_action_list(red_contents,'r')
+    actions = sorted(get_blue_list+get_red_list)
+    return actions
 
 
-def display(soup):
-    name_list = find_Name(soup)
-    label_list = find_label(soup)
-    actions_dict = find_action(soup)
-    print("the player name")
-    print(name_list)
-    print()
-    print("the lable and data for the chart")
-    print(label_list)
-    print()
-    print("the action for two teams")
-    print(actions_dict)
+def get_data(data):
+    name_list = []
+    label_list =[]
+    actions_dict =[]
+    for i,j in enumerate(data['data_link']):
+        
+        soup = get_soup(j)
+        name_list.append(find_Name(soup))
+        label_list.append(find_label(soup))
+        actions_dict.append(find_action(soup))
+    data['champions']=name_list
+    data['gold']=label_list
+    data['action']=actions_dict
+    # print("the player name")
 
+    # print()
+    # print("the lable and data for the chart")
 
-# change in url in here
-url = "https://gol.gg/game/stats/44417/page-game/"
-# page = requests.get(URL)
-# soup = BeautifulSoup(page.content, "html.parser")
-soup = get_soup(url)
-# name_list = find_Name(soup)
-# label = find_label(soup)
-# actions = find_action(soup)
-display(soup)
+    # print()
+    # print("the action for two teams")
+
+    return data
