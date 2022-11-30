@@ -358,6 +358,8 @@ def modify_text(sentence,b_names,r_names):
     selected_b=[]
     selected_r=[]
     selected=[]
+    sentence=sentence.replace('\n',' ').replace('\r',' ')
+    sentence=re.sub(r"\d{1,2}\:\d{1,2}", "", sentence)
     words=sentence.split(' ')
     b_names=check_name(b_names)
     r_names=check_name(r_names)
