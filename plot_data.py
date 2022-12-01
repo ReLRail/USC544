@@ -2,11 +2,11 @@ import matplotlib.pyplot as plot
 import pandas as pd
 
 df1=pd.read_excel("./e1_result.xlsx")
-df2=pd.read_excel("./norule_inter_partial.xlsx")
-df3=pd.read_excel("./noreplace_related_onemin.xlsx")
-df4=pd.read_excel("./replace_related_onemin.xlsx")
-df5=pd.read_excel("./replace_inter.xlsx")
-df6=pd.read_excel("./noreplace_inter.xlsx")
+df2=pd.read_excel("./e2_result.xlsx")
+df3=pd.read_excel("./e3_result.xlsx")
+df4=pd.read_excel("./e4_result.xlsx")
+df5=pd.read_excel("./e5_result.xlsx")
+df6=pd.read_excel("./e6_result.xlsx")
 df=df1[['Epoch']].copy()
 df['Experiment1']=df1['Training Loss']
 df['Experiment2']=df2['Training Loss']
